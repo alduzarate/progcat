@@ -61,7 +61,8 @@ suc m + n = suc (m + n)
 ----------------------------------------------
 {- Ejercicio : Definir la multiplicación -}
 _*_ :  ℕ → ℕ → ℕ
-m * n = {!  !}
+zero * n = zero
+suc m * n = n + n * m
 ----------------------------------------------
 
 infixl 6 _+_
@@ -112,14 +113,16 @@ rev (x ∷ xs) = snoc (rev xs) x
 --------------------------------------------------
 {- Ej : longitud de una lista -}
 length : {A : Set} → List A → ℕ
-length xs = {!!}
+length [] = zero
+length (x ∷ xs) = suc (length xs)
 --------------------------------------------------
 
 
 --------------------------------------------------
 {- Ej : concatenar dos listas -}
 _++_ : {A : Set} → List A → List A → List A
-xs ++ ys = {!!}
+[] ++ ys = ys
+x ∷ xs ++ ys = x ∷ (xs ++ ys)
 --------------------------------------------------
 
 infixr 4 _++_
@@ -234,7 +237,12 @@ enum : (n : ℕ) → Vec (Fin n) n
 enum zero = []
 enum (suc n) = zero ∷ mapVec suc (enum n)
 
-
+{- enum 2 suc (suc zero) -}
+{- zero :: mapVec suc (enum (suc zero)) -}
+{- zero :: mapVec suc (zero :: mapVec suc (enum zero)) -}
+{- zero :: mapVec suc (zero :: mapVec suc []) -}
+{- zero :: mapVec suc [zero] -}
+{- zero :: suc (zero) -}
 
 {- elemento máximo de un conjunto de tipo Fin (suc n) -}
 max : {n : ℕ} → Fin (suc n)
@@ -253,18 +261,20 @@ nat (suc n) = suc (nat n)
         de manera tal que nat x = nat (emb x)
 -}
 emb : {n : ℕ} → Fin n → Fin (suc n)
-emb = {!!}
+emb zero = zero
+emb (suc n) = suc (emb n)
 
 {- Ej: inv me lleva de {0,1,...,n-1} a {n-1,..,1,0} -}
 inv : {n : ℕ} → Fin n → Fin n
-inv i = {!!}
+inv zero = max
+inv (suc n) = emb (inv n)
 -----------------------------------------------------------
 
 
 
 
 {- proyección para vectores -}
-_!!'_ : {A : Set}{n : ℕ} → Vec A n → Fin n → A
+_!!'_ : {A : Set}{n : ℕ} → Vec A n → Fin n → A -- muy bueno
 (x ∷ xs) !!' zero = x
 (x ∷ xs) !!' suc n = xs !!' n
 
@@ -285,7 +295,7 @@ appV (f ∷ fs) (x ∷ xs) = (f x) ∷ (appV fs xs)
 {- Estáticamente aseguramos que la proyección está bien definida -}
 
 Vector : ℕ → Set {- Vec n es un vector n-dimensional -}
-Vector m = Vec ℕ m
+Vector m = Vec ℕ m -- alias para vec naturales
 
 Matrix : ℕ → ℕ → Set {- Matrix m n es una matriz de m x n -}
 Matrix m n = Vec (Vector n) m
@@ -293,7 +303,7 @@ Matrix m n = Vec (Vector n) m
 -------------------------------------------------------
 {- Ej: multiplicación por un escalar -}
 _*v_ : {n : ℕ} → ℕ → Vector n → Vector n
-k *v ms = mapVec {!!} ms
+k *v ms = mapVec (λ x → k * x) ms
 
 v1 : Vector 3
 v1 = 1 ∷ 2 ∷ 3 ∷ []
@@ -303,7 +313,8 @@ test1 = 2 *v v1
 
 {- Ej: suma de vectores -}
 _+v_ : {n : ℕ} → Vector n → Vector n → Vector n
-ms +v ns = {!!}
+[] +v ns = ns
+(m ∷ ms) +v (n ∷ ns) = (m + n) ∷ (ms +v ns)
 
 v2 : Vector 3
 v2 = 2 ∷ 3 ∷ 0 ∷ []
@@ -311,9 +322,18 @@ v2 = 2 ∷ 3 ∷ 0 ∷ []
 test2 : Vector 3
 test2 = v1 +v v2
 
+emptyVec : ∀{n A} → A → Vec A n 
+emptyVec {zero} _ = []
+emptyVec {suc _} x = x ∷ emptyVec x
+
+emptyVector : {n : ℕ} → Vector n 
+emptyVector = emptyVec 0
+
 {- Ej: multiplicación de un vector y una matriz -}
+-- when checking that the expression [] has type Vector n O K
 _*vm_ : {m n : ℕ} → Vector m → Matrix m n → Vector n
-ms *vm nss = {!!}
+[] *vm [] = emptyVector
+(m ∷ ms) *vm (ns ∷ nss) = (m *v ns) +v (ms *vm nss)
 
 id3 : Matrix 3 3
 id3 = (1 ∷ 0 ∷ 0 ∷ []) 
@@ -324,9 +344,14 @@ id3 = (1 ∷ 0 ∷ 0 ∷ [])
 test3 : Vector 3
 test3 = v1 *vm id3
 
+emptyMatrix : {m n : ℕ} → Matrix m n
+emptyMatrix = emptyVec emptyVector
+
 {- Ej: multiplicación de matrices -}
 _*mm_ : {l m n : ℕ} → Matrix l m → Matrix m n → Matrix l n
-mss *mm nss = {!!}
+[] *mm [] = emptyMatrix
+[] *mm nss = emptyMatrix
+(ms ∷ mss) *mm nss = (ms *vm nss) ∷ (mss *mm nss)
 
 inv3 : Matrix 3 3
 inv3 = (0 ∷ 0 ∷ 1 ∷ []) 
@@ -338,8 +363,30 @@ test4 : Matrix 3 3
 test4 = inv3 *mm inv3
 
 {- Ej: transposición de matrices -}
+{- Not gonna happen
+cols : {n m : ℕ} → Matrix m n → Fin m 
+cols [] = zero
+cols (rs ∷ rss) = suc (cols rss)
+
+extractCol : {n m : ℕ} → Fin m → Matrix m n → Vector m
+extractCol i [] = []
+extractCol i (xs ∷ xss) = xs !!' i ∷ extractCol i xss
+
+transposeAux : {n m i : ℕ} → Matrix m n → Fin n → Fin n → Matrix n m
+transposeAux mss i n = case (eq i n) of
+  tt →  then emptyMatrix
+  ff →  else (extractCol i mss) ∷ (transposeAux mss (suc i) n) 
+-}
+
+appendTransposedRow : {n m : ℕ} → Vector n → Matrix n m → Matrix n (suc m)
+appendTransposedRow [] [] = emptyMatrix
+appendTransposedRow (x ∷ xs) (ms ∷ mss) = (x ∷ ms) ∷ appendTransposedRow xs mss
+
 transpose : {n m : ℕ} → Matrix m n → Matrix n m
-transpose m = {!!}
+transpose [] = emptyMatrix
+transpose (ms ∷ mss) = appendTransposedRow ms (transpose mss)
+
+
 
 ej5 : Matrix 3 3
 ej5 = ( 0 ∷ 1 ∷ 2 ∷ [])
